@@ -1,0 +1,30 @@
+DATOS FICTICIOS PARA SMART SPACE
+
+Importar los CSV en este orden: company, building, floor, employee, space, booking.
+Las columnas coinciden con la propuesta completa de la conversación.
+UUID explícitos: conservarlos al importar para mantener todas las relaciones.
+CSV UTF-8, separador coma, encabezados y booleanos true/false.
+Las celdas vacías representan NULL (floorplan_url, assigned_employee_id y space_id).
+Asegurarse de que el importador las trate como NULL, no como texto vacío.
+No hay planos reales asociados; floorplan_url queda vacío.
+
+Contenido: 1 empresa, 2 edificios, 4 plantas, 24 empleados, 64 espacios
+(48 puestos y 16 salas), 172 reservas (160 assigned, 12 pending).
+Fechas: 6–10 octubre de 2026; horas con zona +02:00, Europe/Madrid.
+created_at: 5 octubre de 2026 a las 18:00 +02:00.
+Las reservas del día 6 están bloqueadas tomando ese instante como referencia.
+El backend debe recalcular el bloqueo al avanzar el tiempo.
+
+Los espacios tienen coordenadas ficticias en metros dentro de cada planta;
+no comparar distancias entre plantas sin un modelo adicional.
+8 puestos fijos están asignados a sus propietarios.
+Las reservas asignadas cumplen capacidad, equipamiento y accesibilidad,
+respetan los puestos fijos y no solapan en el mismo espacio.
+Las solicitudes pendientes no tienen sala asignada: incluyen dos solicitudes
+de 20 personas que ninguna sala puede satisfacer.
+status usa assigned y pending; si tu tabla tiene un enum/check diferente,
+adapta estos valores antes de importar.
+No se crean usuarios de Supabase Auth: employee contiene perfiles ficticios.
+
+Importar una sola vez en tablas vacías, o revisar UUID duplicados si ya hay datos.
+Estos datos sirven para el MVP; no constituyen un benchmark ni resultados medidos.

@@ -1,0 +1,5 @@
+id,building_id,name,floor_number,floorplan_url,created_at
+ebae00ba-b4c1-51ab-92a7-b412e0ba76dc,1e5ac3ee-cee9-5359-9698-9eb68d2aa745,Planta 1,1,,2026-10-05T18:00:00+02:00
+f302dfda-37ae-59fe-a35c-e45dff8b4909,1e5ac3ee-cee9-5359-9698-9eb68d2aa745,Planta 2,2,,2026-10-05T18:00:00+02:00
+79bb2c09-ad7a-500b-ab27-e893fe855581,c22a3e2b-42be-57b5-b5b1-87e1f3c21b22,Planta 1,1,,2026-10-05T18:00:00+02:00
+dd80472b-d7e1-5370-802e-0f644a40012d,c22a3e2b-42be-57b5-b5b1-87e1f3c21b22,Planta 2,2,,2026-10-05T18:00:00+02:00

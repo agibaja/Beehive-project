@@ -1,0 +1,25 @@
+id,company_id,name,email,role,created_at
+bf9694e9-0fa2-5972-9e86-7303030661e8,7e38c509-03db-5cab-b2d8-067315671868,Ane Etxeberria,employee01@example.com,admin,2026-10-05T18:00:00+02:00
+96263799-5dba-5939-ac92-8fe9c2f4c5a4,7e38c509-03db-5cab-b2d8-067315671868,Jon Martinez,employee02@example.com,admin,2026-10-05T18:00:00+02:00
+27b8c175-e61c-5cc8-afbc-463530543f9e,7e38c509-03db-5cab-b2d8-067315671868,Leire Garcia,employee03@example.com,employee,2026-10-05T18:00:00+02:00
+8212dc34-a8e7-5cc8-aeaf-b3faed9fe25c,7e38c509-03db-5cab-b2d8-067315671868,Mikel Lopez,employee04@example.com,employee,2026-10-05T18:00:00+02:00
+7a07657d-523b-55b4-ac43-3613ed5f6609,7e38c509-03db-5cab-b2d8-067315671868,Nerea Alonso,employee05@example.com,employee,2026-10-05T18:00:00+02:00
+606d0818-9cd7-5690-b3a5-12c501cbe22a,7e38c509-03db-5cab-b2d8-067315671868,Unai Sanchez,employee06@example.com,employee,2026-10-05T18:00:00+02:00
+47c8945c-eaca-55b5-a26d-9c4a6f7e81ce,7e38c509-03db-5cab-b2d8-067315671868,Maialen Perez,employee07@example.com,employee,2026-10-05T18:00:00+02:00
+18b21890-20e6-5de9-b6d3-794f0bc0170d,7e38c509-03db-5cab-b2d8-067315671868,Iker Ruiz,employee08@example.com,employee,2026-10-05T18:00:00+02:00
+a250d7c2-e61c-5da0-b5a9-3b60b0e82a04,7e38c509-03db-5cab-b2d8-067315671868,June Martin,employee09@example.com,employee,2026-10-05T18:00:00+02:00
+9a0b66f8-6bf4-5807-9162-22e4303dd807,7e38c509-03db-5cab-b2d8-067315671868,Ander Gomez,employee10@example.com,employee,2026-10-05T18:00:00+02:00
+30bbb20f-9e9d-5e64-b849-2d578fb2a077,7e38c509-03db-5cab-b2d8-067315671868,Irati Fernandez,employee11@example.com,employee,2026-10-05T18:00:00+02:00
+ba2ce63c-7ace-5c22-9732-d77973188e37,7e38c509-03db-5cab-b2d8-067315671868,Aitor Diaz,employee12@example.com,employee,2026-10-05T18:00:00+02:00
+732a433e-1051-52ab-8dc3-4f070c96a73b,7e38c509-03db-5cab-b2d8-067315671868,Naia Romero,employee13@example.com,employee,2026-10-05T18:00:00+02:00
+86f8c18c-a873-513d-b690-467bd11793c1,7e38c509-03db-5cab-b2d8-067315671868,Oier Torres,employee14@example.com,employee,2026-10-05T18:00:00+02:00
+344433cf-223c-5f76-be3d-4f1505f53927,7e38c509-03db-5cab-b2d8-067315671868,Miren Navarro,employee15@example.com,employee,2026-10-05T18:00:00+02:00
+35c8d96c-3bc2-5f8e-814a-88b4036334cf,7e38c509-03db-5cab-b2d8-067315671868,Gorka Moreno,employee16@example.com,employee,2026-10-05T18:00:00+02:00
+9790d622-99a8-5a1d-b0fe-fb81fc9a957b,7e38c509-03db-5cab-b2d8-067315671868,Sara Ortega,employee17@example.com,employee,2026-10-05T18:00:00+02:00
+274c5ef8-dbcd-541a-8d8e-12da1f02fca9,7e38c509-03db-5cab-b2d8-067315671868,Pablo Herrera,employee18@example.com,employee,2026-10-05T18:00:00+02:00
+cab2590f-f939-5682-9158-b47f587a6b30,7e38c509-03db-5cab-b2d8-067315671868,Lucia Vidal,employee19@example.com,employee,2026-10-05T18:00:00+02:00
+8bfd708d-1fe4-554e-95eb-70586ee75d60,7e38c509-03db-5cab-b2d8-067315671868,David Castro,employee20@example.com,employee,2026-10-05T18:00:00+02:00
+a3975365-e247-599d-9f76-4ee47e0374bb,7e38c509-03db-5cab-b2d8-067315671868,Elena Santos,employee21@example.com,employee,2026-10-05T18:00:00+02:00
+f52f6309-d459-52cd-8180-68130e636158,7e38c509-03db-5cab-b2d8-067315671868,Hugo Molina,employee22@example.com,employee,2026-10-05T18:00:00+02:00
+86b3f789-676e-55d3-9fcd-f445af020a20,7e38c509-03db-5cab-b2d8-067315671868,Paula Iglesias,employee23@example.com,employee,2026-10-05T18:00:00+02:00
+d144dad1-6fd8-5f88-9b95-ec2cda5eb747,7e38c509-03db-5cab-b2d8-067315671868,Adrian Serrano,employee24@example.com,employee,2026-10-05T18:00:00+02:00

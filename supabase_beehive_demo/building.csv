@@ -1,0 +1,3 @@
+id,company_id,name,address,created_at
+1e5ac3ee-cee9-5359-9698-9eb68d2aa745,7e38c509-03db-5cab-b2d8-067315671868,Donostia Centro,"Calle Demo 10, Donostia (ficticia)",2026-10-05T18:00:00+02:00
+c22a3e2b-42be-57b5-b5b1-87e1f3c21b22,7e38c509-03db-5cab-b2d8-067315671868,Donostia Campus,"Avenida Ejemplo 20, Donostia (ficticia)",2026-10-05T18:00:00+02:00
