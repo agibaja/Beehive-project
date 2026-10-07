@@ -1,0 +1,883 @@
+function apiRequest(path, method, body) {
+  const baseUrl = PropertiesService
+    .getScriptProperties()
+    .getProperty("BACKEND_URL");
+
+  if (!baseUrl || !baseUrl.startsWith("https://")) {
+    throw new Error("Falta configurar BACKEND_URL con una URL HTTPS.");
+  }
+
+  const token = ScriptApp.getIdentityToken();
+
+  if (!token) {
+    throw new Error("No se pudo obtener tu identidad de Google.");
+  }
+
+  const options = {
+    method: method,
+    headers: {
+      Authorization: "Bearer " + token
+    },
+    muteHttpExceptions: true,
+    followRedirects: false
+  };
+
+  if (body !== undefined) {
+    options.contentType = "application/json";
+    options.payload = JSON.stringify(body);
+  }
+
+  const response = UrlFetchApp.fetch(
+    baseUrl.replace(/\/$/, "") + path,
+    options
+  );
+
+  const status = response.getResponseCode();
+  const text = response.getContentText();
+
+  let data;
+
+  try {
+    data = JSON.parse(text);
+  } catch (_) {
+    throw new Error("El backend devolvió una respuesta inesperada.");
+  }
+
+  if (status < 200 || status >= 300) {
+    const detail = typeof data.detail === "string"
+      ? data.detail
+      : Array.isArray(data.detail)
+        ? data.detail.map(error => {
+            const field = (error.loc || []).join(".");
+            return field + ": " + error.msg;
+          }).join("\n")
+        : "No se pudo completar la operación.";
+
+    throw new Error(detail);
+  }
+
+  return data;
+}
+
+
+function buildHome() {
+  const section = CardService.newCardSection();
+  const now = Date.now();
+  const requestId = Utilities.getUuid();
+
+  section.addWidget(
+    CardService.newTextParagraph()
+      .setText("Solicita una sala de reuniones o un puesto de trabajo.")
+  );
+
+  section.addWidget(
+    CardService.newSelectionInput()
+      .setFieldName("request_type")
+      .setTitle("Tipo de espacio")
+      .setType(CardService.SelectionInputType.DROPDOWN)
+      .addItem("Sala de reuniones", "meeting_room", true)
+      .addItem("Puesto de trabajo", "desk", false)
+  );
+
+  section.addWidget(
+    CardService.newDateTimePicker()
+      .setFieldName("start_time")
+      .setTitle("Inicio — hora de Madrid")
+      .setTimeZoneOffsetInMins(madridOffset())
+      .setValueInMsSinceEpoch(now)
+  );
+
+  section.addWidget(
+    CardService.newDateTimePicker()
+      .setFieldName("end_time")
+      .setTitle("Fin — hora de Madrid")
+      .setTimeZoneOffsetInMins(madridOffset())
+      .setValueInMsSinceEpoch(now + 60 * 60 * 1000)
+  );
+
+  section.addWidget(
+    CardService.newTextInput()
+      .setFieldName("people_count")
+      .setTitle("Número de personas")
+      .setValue("1")
+  );
+
+  section.addWidget(
+    CardService.newSelectionInput()
+      .setFieldName("requirements")
+      .setTitle("Requisitos")
+      .setType(CardService.SelectionInputType.CHECK_BOX)
+      .addItem("Monitor", "monitor", false)
+      .addItem("Videoconferencia", "video", false)
+      .addItem("Pizarra", "whiteboard", false)
+      .addItem("Accesibilidad", "accessibility", false)
+      .addItem("Preferencia de ventana", "window", false)
+  );
+
+  section.addWidget(
+    CardService.newTextButton()
+      .setText("Solicitar")
+      .setOnClickAction(
+        CardService.newAction()
+          .setFunctionName("submitBooking")
+          .setParameters({ request_id: requestId })
+      )
+  );
+
+  section.addWidget(
+    CardService.newTextButton()
+      .setText("Mis reservas")
+      .setOnClickAction(
+        CardService.newAction()
+          .setFunctionName("showMyBookings")
+          .setParameters({ offset: "0" })
+      )
+  );
+
+  return CardService.newCardBuilder()
+    .setHeader(
+      CardService.newCardHeader()
+        .setTitle("Beehive")
+    )
+    .addSection(section)
+    .build();
+}
+
+
+function madridOffset() {
+  const offset = Utilities.formatDate(
+    new Date(),
+    "Europe/Madrid",
+    "Z"
+  );
+
+  const sign = offset.startsWith("-") ? -1 : 1;
+  const hours = Number(offset.slice(1, 3));
+  const minutes = Number(offset.slice(3, 5));
+
+  return sign * (hours * 60 + minutes);
+}
+
+
+function firstValue(inputs, field) {
+  const input = inputs[field];
+
+  if (!input || !input.stringInputs) {
+    return "";
+  }
+
+  return input.stringInputs.value[0] || "";
+}
+
+
+function pickerDate(inputs, field) {
+  const input = inputs[field];
+
+  if (
+    !input ||
+    !input.dateTimeInput ||
+    !input.dateTimeInput.hasDate ||
+    !input.dateTimeInput.hasTime
+  ) {
+    throw new Error("Completa la fecha y hora de inicio y fin.");
+  }
+
+  const date = new Date(
+    Number(input.dateTimeInput.msSinceEpoch)
+  );
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Fecha inválida.");
+  }
+
+  return date.toISOString();
+}
+
+
+function submitBooking(e) {
+  try {
+    const inputs = e.commonEventObject.formInputs;
+    const parameters = e.commonEventObject.parameters || {};
+
+    const peopleText = firstValue(inputs, "people_count").trim();
+
+    if (!/^[1-9]\d*$/.test(peopleText)) {
+      throw new Error("Introduce un número entero positivo de personas.");
+    }
+
+    if (!parameters.request_id) {
+      throw new Error("Recarga Beehive para abrir un nuevo formulario.");
+    }
+
+    const requirements = inputs.requirements
+      ? inputs.requirements.stringInputs.value
+      : [];
+
+    const payload = {
+      request_id: parameters.request_id,
+      request_type: firstValue(inputs, "request_type"),
+      start_time: pickerDate(inputs, "start_time"),
+      end_time: pickerDate(inputs, "end_time"),
+      people_count: Number(peopleText),
+      needs_monitor: requirements.includes("monitor"),
+      needs_videoconference: requirements.includes("video"),
+      needs_whiteboard: requirements.includes("whiteboard"),
+      needs_accessibility: requirements.includes("accessibility"),
+      prefers_window: requirements.includes("window")
+    };
+
+    const booking = apiRequest("/bookings", "post", payload);
+
+    let message = "Solicitud registrada.";
+
+    if (!booking.status_verified) {
+      message = "Registrada. Consulta el resultado en «Mis reservas».";
+
+    } else if (booking.status === "assigned") {
+      try {
+        ensureCalendarEvent(booking);
+        message = "Asignada y añadida a Calendar.";
+      } catch (error) {
+        message =
+          "Asignada. No se pudo crear el evento: " +
+          error.message +
+          " Reintenta con «Actualizar evento».";
+      }
+
+    } else if (
+      booking.optimization &&
+      !booking.optimization.completed
+    ) {
+      message = "Registrada. La optimización no pudo completarse.";
+
+    } else {
+      message = "Solicitud registrada como " + booking.status + ".";
+    }
+
+    return CardService.newActionResponseBuilder()
+      .setNavigation(
+        CardService.newNavigation()
+          .updateCard(bookingCard(booking, message))
+      )
+      .build();
+
+  } catch (error) {
+    return notification(error.message);
+  }
+}
+
+function showIdentityConfiguration() {
+  const token = ScriptApp.getIdentityToken();
+
+  if (!token) {
+    throw new Error("Autoriza primero los permisos del proyecto.");
+  }
+
+  const payload = token.split(".")[1];
+
+  const claims = JSON.parse(
+    Utilities.newBlob(
+      Utilities.base64DecodeWebSafe(payload)
+    ).getDataAsString()
+  );
+
+  console.log(JSON.stringify({
+    google_sub: claims.sub,
+    client_id: claims.aud,
+    email: claims.email
+  }));
+}
+
+
+function checkBackendIdentity() {
+  const employee = apiRequest("/me", "get");
+
+  console.log(JSON.stringify({
+    name: employee.name,
+    employee_id: employee.id,
+    company_id: employee.company_id
+  }));
+}
+
+function calendarRequest(calendarId, eventId, method, body) {
+  let url = "https://www.googleapis.com/calendar/v3/calendars/" +
+    encodeURIComponent(calendarId) + "/events";
+
+  if (eventId) {
+    url += "/" + encodeURIComponent(eventId);
+  }
+
+  const options = {
+    method: method,
+    headers: {
+      Authorization: "Bearer " + ScriptApp.getOAuthToken()
+    },
+    muteHttpExceptions: true,
+    followRedirects: false
+  };
+
+  if (body !== undefined) {
+    options.contentType = "application/json";
+    options.payload = JSON.stringify(body);
+  }
+
+  const response = UrlFetchApp.fetch(url, options);
+  const status = response.getResponseCode();
+  const text = response.getContentText();
+
+  let data = {};
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch (_) {
+      throw new Error("Respuesta inesperada de Calendar.");
+    }
+  }
+
+  return { status: status, data: data };
+}
+
+
+function requireCalendarSuccess(response) {
+  if (response.status < 200 || response.status >= 300) {
+    const message = response.data.error
+      ? response.data.error.message
+      : "No se pudo completar la operación en Calendar.";
+
+    throw new Error(message);
+  }
+
+  return response.data;
+}
+
+
+function bookingDescription(booking) {
+  const requirements = [];
+
+  if (booking.needs_monitor) requirements.push("Monitor");
+  if (booking.needs_videoconference) requirements.push("Videoconferencia");
+  if (booking.needs_whiteboard) requirements.push("Pizarra");
+  if (booking.needs_accessibility) requirements.push("Accesibilidad");
+
+  return [
+    "Reserva gestionada por Beehive.",
+    "Personas: " + booking.people_count,
+    "Requisitos obligatorios: " + (
+      requirements.length ? requirements.join(", ") : "Ninguno"
+    ),
+    "Preferencia de ventana: " + (
+      booking.prefers_window ? "Sí" : "No"
+    ),
+    "Estado: " + booking.status,
+    "Reserva: " + booking.id,
+    "",
+    "Para liberar el espacio, abre Beehive y pulsa «Cancelar reserva».",
+    "Los cambios de horario deben gestionarse en Beehive."
+  ].join("\n");
+}
+
+
+function verifyEventBooking(event, booking) {
+  const properties = event.extendedProperties || {};
+  const privateProperties = properties.private || {};
+
+  if (privateProperties.beehive_booking_id !== booking.id) {
+    throw new Error("El evento no corresponde a esta reserva.");
+  }
+}
+
+
+function ensureCalendarEvent(booking) {
+  if (booking.status !== "assigned") {
+    throw new Error("La reserva todavía no está asignada.");
+  }
+
+  if (!booking.calendar_id || !booking.calendar_event_id) {
+    throw new Error(
+      "Esta reserva antigua no tiene vínculo con Calendar."
+    );
+  }
+
+  const space = booking.space_name || booking.space_id;
+  const type = booking.request_type === "desk" ? "Puesto" : "Sala";
+
+  const content = {
+    summary: "Beehive · " + type + " · " + space,
+    location: space,
+    description: bookingDescription(booking),
+    start: {
+      dateTime: booking.start_time,
+      timeZone: "Europe/Madrid"
+    },
+    end: {
+      dateTime: booking.end_time,
+      timeZone: "Europe/Madrid"
+    }
+  };
+
+  let existing = calendarRequest(
+    booking.calendar_id,
+    booking.calendar_event_id,
+    "get"
+  );
+
+  if (existing.status === 404) {
+    const created = calendarRequest(
+      booking.calendar_id,
+      null,
+      "post",
+      {
+        ...content,
+        id: booking.calendar_event_id,
+        extendedProperties: {
+          private: {
+            beehive_booking_id: booking.id
+          }
+        }
+      }
+    );
+
+    if (created.status !== 409) {
+      return requireCalendarSuccess(created);
+    }
+
+    // Otro envío pudo crear el mismo evento.
+    existing = calendarRequest(
+      booking.calendar_id,
+      booking.calendar_event_id,
+      "get"
+    );
+  }
+
+  const event = requireCalendarSuccess(existing);
+
+  if (event.status === "cancelled") {
+    throw new Error(
+      "El evento se eliminó en Calendar. Revisa la reserva en Beehive."
+    );
+  }
+
+  verifyEventBooking(event, booking);
+
+  return requireCalendarSuccess(
+    calendarRequest(
+      booking.calendar_id,
+      booking.calendar_event_id,
+      "patch",
+      content
+    )
+  );
+}
+
+
+function removeCalendarEvent(booking) {
+  if (!booking.calendar_id || !booking.calendar_event_id) {
+    return;
+  }
+
+  const existing = calendarRequest(
+    booking.calendar_id,
+    booking.calendar_event_id,
+    "get"
+  );
+
+  if (existing.status === 404 || existing.status === 410) {
+    return;
+  }
+
+  const event = requireCalendarSuccess(existing);
+
+  if (event.status === "cancelled") {
+    return;
+  }
+
+  verifyEventBooking(event, booking);
+
+  const removed = calendarRequest(
+    booking.calendar_id,
+    booking.calendar_event_id,
+    "delete"
+  );
+
+  if (removed.status === 404 || removed.status === 410) {
+    return;
+  }
+
+  requireCalendarSuccess(removed);
+}
+
+function notification(message) {
+  return CardService.newActionResponseBuilder()
+    .setNotification(
+      CardService.newNotification().setText(message)
+    )
+    .build();
+}
+
+
+function safeText(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+
+function formatBookingDate(value) {
+  return Utilities.formatDate(
+    new Date(value),
+    "Europe/Madrid",
+    "dd/MM/yyyy HH:mm"
+  );
+}
+
+
+function bookingCard(booking, message) {
+  const section = CardService.newCardSection();
+
+  if (message) {
+    section.addWidget(
+      CardService.newTextParagraph().setText(safeText(message))
+    );
+  }
+
+  const space = booking.status === "assigned"
+    ? (booking.space_name || booking.space_id)
+    : "Sin espacio activo";
+
+  section.addWidget(
+    CardService.newTextParagraph().setText(
+      "<b>Estado:</b> " + safeText(booking.status) +
+      "<br><b>Espacio:</b> " + safeText(space) +
+      "<br><b>Inicio:</b> " + safeText(
+        formatBookingDate(booking.start_time)
+      ) +
+      "<br><b>Fin:</b> " + safeText(
+        formatBookingDate(booking.end_time)
+      ) +
+      "<br><b>Personas:</b> " + booking.people_count
+    )
+  );
+
+  const parameters = { booking_id: booking.id };
+
+  if (
+    booking.status === "assigned" &&
+    new Date(booking.end_time).getTime() > Date.now()
+  ) {
+    section.addWidget(
+      CardService.newTextButton()
+        .setText("Crear / actualizar evento")
+        .setOnClickAction(
+          CardService.newAction()
+            .setFunctionName("updateBookingEvent")
+            .setParameters(parameters)
+        )
+    );
+  }
+
+  if (
+    ["pending", "assigned"].includes(booking.status) &&
+    new Date(booking.start_time).getTime() > Date.now()
+  ) {
+    section.addWidget(
+      CardService.newTextButton()
+        .setText("Cancelar reserva")
+        .setOnClickAction(
+          CardService.newAction()
+            .setFunctionName("askCancelBooking")
+            .setParameters(parameters)
+        )
+    );
+  }
+
+  if (booking.status === "cancelled") {
+    section.addWidget(
+      CardService.newTextButton()
+        .setText("Reintentar eliminar evento")
+        .setOnClickAction(
+          CardService.newAction()
+            .setFunctionName("confirmCancelBooking")
+            .setParameters(parameters)
+        )
+    );
+  }
+
+  section.addWidget(
+    CardService.newTextButton()
+      .setText("Nueva solicitud")
+      .setOnClickAction(
+        CardService.newAction().setFunctionName("newBookingForm")
+      )
+  );
+
+  return CardService.newCardBuilder()
+    .setHeader(CardService.newCardHeader().setTitle("Reserva Beehive"))
+    .addSection(section)
+    .build();
+}
+
+
+function newBookingForm() {
+  return CardService.newActionResponseBuilder()
+    .setNavigation(
+      CardService.newNavigation().updateCard(buildHome())
+    )
+    .build();
+}
+
+
+function updateBookingEvent(e) {
+  try {
+    const id = e.commonEventObject.parameters.booking_id;
+
+    const booking = apiRequest(
+      "/bookings/" + encodeURIComponent(id),
+      "get"
+    );
+
+    ensureCalendarEvent(booking);
+
+    return CardService.newActionResponseBuilder()
+      .setNavigation(
+        CardService.newNavigation().updateCard(
+          bookingCard(booking, "Evento actualizado.")
+        )
+      )
+      .build();
+
+  } catch (error) {
+    return notification(error.message);
+  }
+}
+
+
+function askCancelBooking(e) {
+  const id = e.commonEventObject.parameters.booking_id;
+
+  const section = CardService.newCardSection()
+    .addWidget(
+      CardService.newTextParagraph()
+        .setText("¿Cancelar la reserva y eliminar su evento?")
+    )
+    .addWidget(
+      CardService.newTextButton()
+        .setText("Confirmar cancelación")
+        .setOnClickAction(
+          CardService.newAction()
+            .setFunctionName("confirmCancelBooking")
+            .setParameters({ booking_id: id })
+        )
+    );
+
+  const card = CardService.newCardBuilder()
+    .setHeader(
+      CardService.newCardHeader().setTitle("Cancelar reserva")
+    )
+    .addSection(section)
+    .build();
+
+  return CardService.newActionResponseBuilder()
+    .setNavigation(CardService.newNavigation().pushCard(card))
+    .build();
+}
+
+
+function confirmCancelBooking(e) {
+  const id = e.commonEventObject.parameters.booking_id;
+
+  let booking;
+
+  try {
+    // Cancelar primero en Supabase. Su endpoint permite reintentos.
+    booking = apiRequest(
+      "/bookings/" + encodeURIComponent(id) + "/cancel",
+      "post"
+    );
+  } catch (error) {
+    return notification(
+      "No se confirmó la cancelación: " + error.message
+    );
+  }
+
+  let message = "Reserva cancelada y evento eliminado.";
+
+  try {
+    removeCalendarEvent(booking);
+  } catch (error) {
+    message =
+      "Reserva cancelada en Supabase. Falta eliminar el evento: " +
+      error.message +
+      " Usa «Reintentar eliminar evento».";
+  }
+
+  if (
+    booking.optimization &&
+    !booking.optimization.completed
+  ) {
+    message += " No se pudo completar la reasignación de pendientes.";
+  }
+
+  return CardService.newActionResponseBuilder()
+    .setNavigation(
+      CardService.newNavigation().updateCard(
+        bookingCard(booking, message)
+      )
+    )
+    .build();
+}
+
+function onCalendarEventOpen(e) {
+  try {
+    const context = e.calendar;
+
+    if (!context || !context.id) {
+      return buildHome();
+    }
+
+    const event = requireCalendarSuccess(
+      calendarRequest(
+        context.calendarId,
+        context.id,
+        "get"
+      )
+    );
+
+    const privateProperties =
+      (event.extendedProperties || {}).private || {};
+
+    const id = privateProperties.beehive_booking_id;
+
+    if (!id) {
+      return simpleCard("Este evento no es una reserva de Beehive.");
+    }
+
+    // El backend comprueba que la reserva pertenece al trabajador.
+    const booking = apiRequest(
+      "/bookings/" + encodeURIComponent(id),
+      "get"
+    );
+
+    if (booking.calendar_event_id !== context.id) {
+      return simpleCard("El evento no corresponde al vínculo registrado.");
+    }
+
+    return bookingCard(booking);
+
+  } catch (error) {
+    return simpleCard(error.message);
+  }
+}
+
+
+function simpleCard(message) {
+  return CardService.newCardBuilder()
+    .setHeader(CardService.newCardHeader().setTitle("Beehive"))
+    .addSection(
+      CardService.newCardSection().addWidget(
+        CardService.newTextParagraph().setText(safeText(message))
+      )
+    )
+    .build();
+}
+
+function showMyBookings(e) {
+  try {
+    const parameters = e.commonEventObject.parameters || {};
+    const offset = Number(parameters.offset || 0);
+    const limit = 10;
+
+    const response = apiRequest(
+      "/bookings?offset=" + offset + "&limit=" + limit,
+      "get"
+    );
+
+    const section = CardService.newCardSection();
+
+    response.items.forEach(booking => {
+      section.addWidget(
+        CardService.newTextButton()
+          .setText(
+            formatBookingDate(booking.start_time) +
+            " · " + booking.status
+          )
+          .setOnClickAction(
+            CardService.newAction()
+              .setFunctionName("openBooking")
+              .setParameters({ booking_id: booking.id })
+          )
+      );
+    });
+
+    if (!response.items.length) {
+      section.addWidget(
+        CardService.newTextParagraph()
+          .setText("No hay reservas en esta página.")
+      );
+    }
+
+    if (offset > 0) {
+      section.addWidget(
+        CardService.newTextButton()
+          .setText("Anterior")
+          .setOnClickAction(
+            CardService.newAction()
+              .setFunctionName("showMyBookings")
+              .setParameters({
+                offset: String(Math.max(0, offset - limit))
+              })
+          )
+      );
+    }
+
+    if (response.items.length === limit) {
+      section.addWidget(
+        CardService.newTextButton()
+          .setText("Siguiente")
+          .setOnClickAction(
+            CardService.newAction()
+              .setFunctionName("showMyBookings")
+              .setParameters({ offset: String(offset + limit) })
+          )
+      );
+    }
+
+    const card = CardService.newCardBuilder()
+      .setHeader(CardService.newCardHeader().setTitle("Mis reservas"))
+      .addSection(section)
+      .build();
+
+    return CardService.newActionResponseBuilder()
+      .setNavigation(CardService.newNavigation().pushCard(card))
+      .build();
+
+  } catch (error) {
+    return notification(error.message);
+  }
+}
+
+
+function openBooking(e) {
+  try {
+    const id = e.commonEventObject.parameters.booking_id;
+
+    const booking = apiRequest(
+      "/bookings/" + encodeURIComponent(id),
+      "get"
+    );
+
+    return CardService.newActionResponseBuilder()
+      .setNavigation(
+        CardService.newNavigation().pushCard(bookingCard(booking))
+      )
+      .build();
+
+  } catch (error) {
+    return notification(error.message);
+  }
+}
+
+function resetAuthorization() {
+  ScriptApp.invalidateAuth();
+}
