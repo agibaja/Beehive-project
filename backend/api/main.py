@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from postgrest.exceptions import APIError
 
 from api.bookings import router as bookings_router
+from api.admin import router as admin_router
 from api.security import get_current_employee
 
 
@@ -16,7 +17,7 @@ app = FastAPI(
 )
 
 app.include_router(bookings_router)
-
+app.include_router(admin_router)
 
 @app.exception_handler(APIError)
 async def database_error_handler(request: Request, exc: APIError):
